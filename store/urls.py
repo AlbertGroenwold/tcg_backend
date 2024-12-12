@@ -1,6 +1,7 @@
 from django.urls import path
-from .views import ItemList
+
+from store.views import get_items_by_category
 
 urlpatterns = [
-    path('items/', ItemList.as_view(), name='item-list'),
+    path('items/', get_items_by_category, name='get_items_by_category'),
 ]
