@@ -1,4 +1,6 @@
+from django.contrib.auth.models import AbstractUser
 from django.db import models
+from .managers import CustomUserManager  # Ensure this is implemented correctly
 
 class Item(models.Model):
     id = models.AutoField(primary_key=True)  # Automatically generated ID
@@ -13,3 +15,26 @@ class Item(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class CustomUser(AbstractUser):
+    username = None  # Remove the username field
+    email = models.EmailField(unique=True)  # Email will be the unique identifier
+
+    USERNAME_FIELD = 'email'  # Use email as the unique field
+    REQUIRED_FIELDS = []  # Remove other required fields
+
+    objects = CustomUserManager()  # Assign the custom manager
+
+    def __str__(self):
+        return self.email
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='profile')
+    primary_address = models.TextField()
+    secondary_address = models.TextField(blank=True, null=True)
+    order_ids = models.TextField(blank=True, null=True)  # Store as a comma-separated list
+
+    def __str__(self):
+        return self.user.email  # Use email instead of username

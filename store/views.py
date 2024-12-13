@@ -1,9 +1,13 @@
 from rest_framework.decorators import api_view
-from rest_framework.response import Response
 from .serializers import ItemSerializer
 from django.shortcuts import redirect
 from django.http import JsonResponse
 from .models import Item
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .serializers import UserSerializer
+from django.contrib.auth import get_user_model
 
 def home(request):
     return redirect('/admin')
@@ -38,3 +42,23 @@ def get_item_detail(request, id):
         })
     except Item.DoesNotExist:
         return JsonResponse({'error': 'Item not found'}, status=404)
+
+User = get_user_model()  # Use the custom user model if defined
+
+class UserDetailView(APIView):
+    def get(self, request, username):
+        try:
+            # Replace 'username' with 'email' if using email as the unique identifier
+            user = User.objects.get(email=username)  # Adjust query to match your identifier
+            serializer = UserSerializer(user)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+class RegisterUserView(APIView):
+    def post(self, request):
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
