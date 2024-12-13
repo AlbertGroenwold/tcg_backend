@@ -38,3 +38,19 @@ def get_item_detail(request, id):
         })
     except Item.DoesNotExist:
         return JsonResponse({'error': 'Item not found'}, status=404)
+
+@api_view(['GET'])
+def search_items(request):
+    item = request.query_params.get('item', None)
+    if item:
+        print("Filtering for Item:", item)  # Debugging log
+        items = Item.objects.filter(name__icontains=item)  # Case-insensitive match
+        print("Items found:", items)  # Debugging log
+    else:
+        items = []
+        print("No category provided; No results found.")  # Debugging log
+
+    serializer = ItemSerializer(items, many=True)
+    return Response(serializer.data)
+    
+    
