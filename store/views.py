@@ -1,8 +1,9 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Item
 from .serializers import ItemSerializer
 from django.shortcuts import redirect
+from django.http import JsonResponse
+from .models import Item
 
 def home(request):
     return redirect('/admin')
@@ -21,3 +22,19 @@ def get_items_by_category(request):
     serializer = ItemSerializer(items, many=True)
     return Response(serializer.data)
 
+def get_item_detail(request, id):
+    try:
+        item = Item.objects.get(pk=id)
+        return JsonResponse({
+            'id': item.id,
+            'name': item.name,
+            'category': item.category,
+            'description': item.description,
+            'price': float(item.price),
+            'stock': item.stock,
+            'image': request.build_absolute_uri(item.image.url) if item.image else None,  # Full URL
+            'contains': item.contains,
+            'release_date': item.release_date,
+        })
+    except Item.DoesNotExist:
+        return JsonResponse({'error': 'Item not found'}, status=404)
