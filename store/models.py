@@ -8,6 +8,8 @@ class Item(models.Model):
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # Price field
     stock = models.PositiveIntegerField(default=0)  # Stock field
     image = models.ImageField(upload_to='item_images/', blank=True, null=True)  # Image upload field
+    release_date = models.DateField(blank=True, null=True)  # New release date field
+    contains = models.TextField(blank=True, null=True)  # New contains field (e.g., items it contains)
 
     def __str__(self):
         return self.name
