@@ -5,7 +5,7 @@ from .serializers import ItemSerializer
 from django.shortcuts import redirect
 
 def home(request):
-    return redirect('/api/items/')
+    return redirect('/admin')
 
 @api_view(['GET'])
 def get_items_by_category(request):
