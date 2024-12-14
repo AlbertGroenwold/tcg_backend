@@ -5,7 +5,7 @@ from .managers import CustomUserManager  # Ensure this is implemented correctly
 # Item Model
 class Item(models.Model):
     id = models.AutoField(primary_key=True)  # Automatically generated ID
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)  # Ensure names are unique
     category = models.CharField(max_length=255, default="Unknown")
     description = models.TextField(blank=True, null=True)  # Optional description
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # Price field

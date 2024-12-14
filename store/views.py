@@ -70,9 +70,9 @@ def get_items_by_category(request):
     serializer = ItemSerializer(items, many=True)
     return Response(serializer.data)
 
-def get_item_detail(request, id):
+def get_item_detail(request, name):
     try:
-        item = Item.objects.get(pk=id)
+        item = Item.objects.get(name__iexact=name)
         return JsonResponse({
             'id': item.id,
             'name': item.name,
@@ -80,7 +80,7 @@ def get_item_detail(request, id):
             'description': item.description,
             'price': float(item.price),
             'stock': item.stock,
-            'image': request.build_absolute_uri(item.image.url) if item.image else None,  # Full URL
+            'image': request.build_absolute_uri(item.image.url) if item.image else None,
             'contains': item.contains,
             'release_date': item.release_date,
         })
