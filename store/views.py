@@ -140,3 +140,19 @@ class LoginView(APIView):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+    
+@api_view(['GET'])
+def search_items(request):
+    item = request.query_params.get('item', None)
+    if item:
+        print("Filtering for Item:", item)  # Debugging log
+        items = Item.objects.filter(name__icontains=item)  # Case-insensitive match
+        print("Items found:", items)  # Debugging log
+    else:
+        items = []
+        print("No category provided; No results found.")  # Debugging log
+
+    serializer = ItemSerializer(items, many=True)
+    return Response(serializer.data)
+    
+    
