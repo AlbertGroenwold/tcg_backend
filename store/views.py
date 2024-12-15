@@ -2,14 +2,13 @@ from rest_framework.decorators import api_view, permission_classes
 from .serializers import ItemSerializer, OrderSerializer, UserProfileSerializer, UserSerializer
 from django.shortcuts import redirect
 from django.http import JsonResponse
-from .models import Item, Order, OrderDetail
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from django.contrib.auth import authenticate
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import UserProfile, CustomUser
+from .models import UserProfile, CustomUser, Item, Order, OrderDetail, Category
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer
 
@@ -58,25 +57,61 @@ def get_order_details(request, order_id):
 
 @api_view(['GET'])
 def get_items_by_category(request):
-    category = request.query_params.get('category', None)
-    if category:
-        print("Filtering for category:", category)  # Debugging log
-        items = Item.objects.filter(category__iexact=category)  # Case-insensitive match
-        print("Items found:", items)  # Debugging log
+    category_query = request.GET.get('category', None)
+    if category_query:
+        # Split the category query into parent and child if they exist
+        if '/' in category_query:
+            parent_name, category_name = category_query.split('/', 1)
+            items = Item.objects.filter(
+                categories__name__icontains=category_name,
+                categories__parent__name__icontains=parent_name
+            ).distinct()
+        else:
+            items = Item.objects.filter(categories__name__icontains=category_query).distinct()
     else:
         items = Item.objects.all()
-        print("No category provided; returning all items.")  # Debugging log
 
-    serializer = ItemSerializer(items, many=True)
-    return Response(serializer.data)
+    # Serialize the items
+    items_data = [
+        {
+            'id': item.id,
+            'name': item.name,
+            'price': float(item.price),
+            'categories': [category.name for category in item.categories.all()]  # Include all categories for the item
+        }
+        for item in items
+    ]
+    return JsonResponse(items_data, safe=False)
+
+def get_category_counts(request):
+    categories = Category.objects.all()
+    category_counts = []
+
+    for category in categories:
+        item_count = category.item_set.count()  # Get the count of items linked to this category
+        category_counts.append({
+            'id': category.id,
+            'name': category.name,
+            'parent': category.parent.name if category.parent else None,
+            'item_count': item_count,
+        })
+
+    return JsonResponse({'categories': category_counts})
+
 
 def get_item_detail(request, name):
     try:
-        item = Item.objects.get(name__iexact=name)
+        # Fetch the item by name (case-insensitive) and prefetch its related categories
+        item = Item.objects.prefetch_related('categories').get(name__iexact=name)
+
+        # Serialize the item data including related categories
         return JsonResponse({
             'id': item.id,
             'name': item.name,
-            'category': item.category,
+            'categories': [
+                {'id': category.id, 'name': category.name, 'parent': category.parent.name if category.parent else None}
+                for category in item.categories.all()
+            ],
             'description': item.description,
             'price': float(item.price),
             'stock': item.stock,
@@ -154,5 +189,36 @@ def search_items(request):
 
     serializer = ItemSerializer(items, many=True)
     return Response(serializer.data)
-    
-    
+
+
+def get_sidebar_data(request):
+    def build_hierarchy(parent=None):
+        # Retrieve categories with the given parent
+        categories = Category.objects.filter(parent=parent)
+        hierarchy = {}
+
+        for category in categories:
+            # Recursively build for child categories
+            children = build_hierarchy(category)
+            hierarchy[category.name] = {"children": children}
+
+        return hierarchy
+
+    data = build_hierarchy()
+    return JsonResponse({"sidebar": data})
+
+def get_category_hierarchy(request):
+    def build_hierarchy(parent=None):
+        categories = Category.objects.filter(parent=parent).order_by('name')
+        return [
+            {
+                "id": category.id,
+                "name": category.name,
+                "parent": category.parent.id if category.parent else None,
+                "children": build_hierarchy(category)  # Recursively include children
+            }
+            for category in categories
+        ]
+
+    data = build_hierarchy()
+    return JsonResponse(data, safe=False)

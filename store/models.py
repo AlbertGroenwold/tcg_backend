@@ -2,11 +2,36 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from .managers import CustomUserManager  # Ensure this is implemented correctly
 
+# Category Model
+class Category(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='children'
+    )
+
+    class Meta:
+        db_table = 'categories'
+        verbose_name_plural = 'categories'
+
+    def __str__(self):
+        # Display the full hierarchy (e.g., "Grandparent > Parent > Child")
+        ancestors = [self.name]
+        parent = self.parent
+        while parent:
+            ancestors.append(parent.name)
+            parent = parent.parent
+        return " > ".join(reversed(ancestors))
+
+
 # Item Model
 class Item(models.Model):
     id = models.AutoField(primary_key=True)  # Automatically generated ID
     name = models.CharField(max_length=255, unique=True)  # Ensure names are unique
-    category = models.CharField(max_length=255, default="Unknown")
+    categories = models.ManyToManyField(Category, related_name='items', blank=True)  # Many-to-many relationship with Category
     description = models.TextField(blank=True, null=True)  # Optional description
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)  # Price field
     stock = models.PositiveIntegerField(default=0)  # Stock field

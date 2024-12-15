@@ -1,13 +1,25 @@
-from .models import Item, CustomUser, UserProfile, Order, OrderDetail
 from django.contrib import admin
+from .models import Item, CustomUser, UserProfile, Order, OrderDetail, Category
 from django.contrib.auth.admin import UserAdmin
+
+
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('id','name', 'parent', 'get_full_hierarchy')
+    search_fields = ('name',)
+    list_filter = ('parent',)
+
+    def get_full_hierarchy(self, obj):
+        return str(obj)
+    get_full_hierarchy.short_description = 'Full Hierarchy'
 
 
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'category', 'price', 'stock', 'image', 'release_date', 'contains')
-    search_fields = ('name', 'category')
-    list_filter = ('category',)
+    list_display = ('id', 'name', 'price', 'stock', 'image', 'release_date', 'contains')
+    search_fields = ('name',)
+    list_filter = ('categories',)
+    filter_horizontal = ('categories',)  # Allow easy selection of categories in the admin panel
     readonly_fields = ('id',)
 
 

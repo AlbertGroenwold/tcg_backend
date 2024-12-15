@@ -7,6 +7,8 @@ from .views import (
     get_item_detail,
     CustomTokenObtainPairView,
     search_items,
+    get_category_hierarchy,
+    get_sidebar_data,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -19,4 +21,7 @@ urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('orders/', get_user_orders, name='user_orders'),
     path('search/', search_items, name='search_items'),
+    path('sidebar-data/', get_sidebar_data, name='sidebar-data'),
+    path('categories/', get_category_hierarchy, name='category-hierarchy'),
+    path('categories/hierarchy/', get_category_hierarchy, name='get_category_hierarchy'),
 ]

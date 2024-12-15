@@ -1,12 +1,18 @@
-from .models import Item, CustomUser, UserProfile, Order, OrderDetail
+from .models import Item, CustomUser, UserProfile, Order, OrderDetail, Category
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-# Item Serializer
+class CategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Category
+        fields = ['id', 'name', 'parent']  # Include parent category for nested display
+
 class ItemSerializer(serializers.ModelSerializer):
+    categories = CategorySerializer(many=True)  # Include related categories
+
     class Meta:
         model = Item
-        fields = ['id', 'name', 'category', 'price', 'stock', 'image']
+        fields = ['id', 'name', 'description', 'price', 'stock', 'image', 'release_date', 'contains', 'categories']
 
 # User Profile Serializer
 class UserProfileSerializer(serializers.ModelSerializer):
