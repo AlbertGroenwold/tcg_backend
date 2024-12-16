@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes
-from .serializers import ItemSerializer, OrderSerializer, UserProfileSerializer, UserSerializer
+from .serializers import ItemSerializer, OrderSerializer, UserSerializer, AddressSerializer
 from django.shortcuts import redirect
 from django.http import JsonResponse
 from django.contrib.auth import get_user_model
@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import UserProfile, CustomUser, Item, Order, OrderDetail, Category
+from .models import CustomUser, Item, Order, OrderDetail, Category, Address
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer
 
@@ -22,19 +22,43 @@ def get_user_orders(request):
     serializer = OrderSerializer(orders, many=True)
     return Response(serializer.data)
 
+
 @api_view(['GET'])
 def get_user_profile(request, email):
     try:
-        user_profile = UserProfile.objects.select_related('user').get(user__email=email)
-        user_orders = Order.objects.filter(user=user_profile.user)
-        profile_serializer = UserProfileSerializer(user_profile)
+        # Fetch the user by email
+        user = CustomUser.objects.get(email=email)
+
+        # Fetch orders for the user
+        user_orders = Order.objects.filter(user=user)
+
+        # Fetch addresses for the user
+        addresses = Address.objects.filter(user=user)
+
+        # Serialize orders
         order_serializer = OrderSerializer(user_orders, many=True)
+
+        # Prepare address data
+        addresses_data = [
+            {
+                'id': address.id,
+                'address': address.address,
+                'city': address.city,
+                'province': address.province,
+                'postal_code': address.postal_code,
+                'country': address.country,
+                'address_type': address.address_type,
+            }
+            for address in addresses
+        ]
+
         return Response({
-            'profile': profile_serializer.data,
-            'orders': order_serializer.data
+            'email': user.email,
+            'addresses': addresses_data,
+            'orders': order_serializer.data,
         })
-    except UserProfile.DoesNotExist:
-        return Response({'error': 'User profile not found'}, status=404)
+    except CustomUser.DoesNotExist:
+        return Response({'error': 'User not found'}, status=404)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -129,16 +153,21 @@ class UserDetailView(APIView):
 
     def get(self, request, username):
         try:
+            # Fetch the user based on the provided email (username)
             user = CustomUser.objects.get(email=username)
-            profile = user.profile  # Access the related UserProfile instance
-            orders = Order.objects.filter(user=user)
 
-            profile_serializer = UserProfileSerializer(profile)
+            # Fetch the user's addresses
+            addresses = Address.objects.filter(user=user)
+            address_serializer = AddressSerializer(addresses, many=True)
+
+            # Fetch the user's orders
+            orders = Order.objects.filter(user=user)
             orders_serializer = OrderSerializer(orders, many=True)
 
+            # Build the response
             response_data = {
                 "email": user.email,
-                "profile": profile_serializer.data,
+                "addresses": address_serializer.data,
                 "orders": orders_serializer.data,
             }
 
@@ -222,3 +251,23 @@ def get_category_hierarchy(request):
 
     data = build_hierarchy()
     return JsonResponse(data, safe=False)
+
+class AddressDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+    def delete(self, request, pk, *args, **kwargs):
+        try:
+            address = Address.objects.get(pk=pk)
+            address.delete()
+            return Response({"message": "Address deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        except Address.DoesNotExist:
+            return Response({"error": "Address not found."}, status=status.HTTP_404_NOT_FOUND)
+
+class AddressListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = AddressSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

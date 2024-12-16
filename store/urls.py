@@ -9,6 +9,8 @@ from .views import (
     search_items,
     get_category_hierarchy,
     get_sidebar_data,
+    AddressDetailView,
+    AddressListCreateView,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -24,4 +26,6 @@ urlpatterns = [
     path('sidebar-data/', get_sidebar_data, name='sidebar-data'),
     path('categories/', get_category_hierarchy, name='category-hierarchy'),
     path('categories/hierarchy/', get_category_hierarchy, name='get_category_hierarchy'),
+    path('address/<int:pk>/', AddressDetailView.as_view(), name='address-detail'),
+    path('address/', AddressListCreateView.as_view(), name='address-list-create'),
 ]

@@ -1,11 +1,18 @@
 from django.contrib import admin
-from .models import Item, CustomUser, UserProfile, Order, OrderDetail, Category
 from django.contrib.auth.admin import UserAdmin
+from .models import (
+    Category,
+    Item,
+    CustomUser,
+    Order,
+    OrderDetail,
+    Address,
+)
 
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('id','name', 'parent', 'get_full_hierarchy')
+    list_display = ('id', 'name', 'parent', 'get_full_hierarchy')
     search_fields = ('name',)
     list_filter = ('parent',)
 
@@ -23,20 +30,8 @@ class ItemAdmin(admin.ModelAdmin):
     readonly_fields = ('id',)
 
 
-@admin.register(UserProfile)
-class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'primary_address', 'secondary_address')
-    search_fields = ('user__email', 'primary_address', 'secondary_address')
-
-
-class UserProfileInline(admin.StackedInline):
-    model = UserProfile
-    can_delete = False
-    verbose_name_plural = 'Profile'
-
-
+# Custom User Admin
 class CustomUserAdmin(UserAdmin):
-    inlines = (UserProfileInline,)  # Link UserProfile with CustomUser in the admin
     list_display = ('email', 'is_staff', 'is_active')  # Customize User admin fields
     search_fields = ('email',)
     ordering = ('email',)
@@ -51,6 +46,41 @@ class CustomUserAdmin(UserAdmin):
             'fields': ('email', 'password1', 'password2', 'is_staff', 'is_active')},
          ),
     )
+
+
+# Address Admin
+@admin.register(Address)
+class AddressAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'address_type', 'address', 'city', 'province', 'postal_code', 'country')
+    list_filter = ('address_type', 'province', 'city')
+    search_fields = ('address', 'city', 'postal_code', 'user__email')
+    ordering = ('user', 'address_type')
+
+    # Custom form to handle province as a dropdown and country defaulted to "South Africa"
+    def get_form(self, request, obj=None, **kwargs):
+        form = super().get_form(request, obj, **kwargs)
+
+        # Province dropdown
+        form.base_fields['province'].choices = [
+            ("Eastern Cape", "Eastern Cape"),
+            ("Free State", "Free State"),
+            ("Gauteng", "Gauteng"),
+            ("KwaZulu-Natal", "KwaZulu-Natal"),
+            ("Limpopo", "Limpopo"),
+            ("Mpumalanga", "Mpumalanga"),
+            ("North West", "North West"),
+            ("Northern Cape", "Northern Cape"),
+            ("Western Cape", "Western Cape"),
+        ]
+
+        # Ensure country is always "South Africa" and not editable
+        form.base_fields['country'].initial = "South Africa"
+        form.base_fields['country'].disabled = True
+
+        # User dropdown to select linked user
+        form.base_fields['user'].queryset = CustomUser.objects.all()
+
+        return form
 
 
 # OrderDetail Inline (used within the Order admin)

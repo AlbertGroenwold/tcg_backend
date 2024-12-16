@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from .managers import CustomUserManager  # Ensure this is implemented correctly
 
+
 # Category Model
 class Category(models.Model):
     name = models.CharField(max_length=255, unique=True)
@@ -43,6 +44,39 @@ class Item(models.Model):
         return self.name
 
 
+# Address Model
+class Address(models.Model):
+    PROVINCE_CHOICES = [
+        ("Eastern Cape", "Eastern Cape"),
+        ("Free State", "Free State"),
+        ("Gauteng", "Gauteng"),
+        ("KwaZulu-Natal", "KwaZulu-Natal"),
+        ("Limpopo", "Limpopo"),
+        ("Mpumalanga", "Mpumalanga"),
+        ("North West", "North West"),
+        ("Northern Cape", "Northern Cape"),
+        ("Western Cape", "Western Cape"),
+    ]
+
+    user = models.ForeignKey(
+        'CustomUser', on_delete=models.CASCADE, related_name='addresses'
+    )
+    address_type = models.CharField(
+        max_length=20, choices=(("primary", "Primary"), ("secondary", "Secondary"))
+    )
+    address = models.TextField()
+    city = models.CharField(max_length=255)
+    province = models.CharField(max_length=255, choices=PROVINCE_CHOICES)
+    postal_code = models.CharField(max_length=10)
+    country = models.CharField(max_length=255, default="South Africa")
+
+    class Meta:
+        db_table = 'addresses'
+
+    def __str__(self):
+        return f"{self.address_type.capitalize()} Address for {self.user.email}"
+
+
 # Custom User Model
 class CustomUser(AbstractUser):
     username = None  # Remove the username field
@@ -55,16 +89,6 @@ class CustomUser(AbstractUser):
 
     def __str__(self):
         return self.email
-
-
-# UserProfile Model
-class UserProfile(models.Model):
-    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='profile')
-    primary_address = models.TextField()
-    secondary_address = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return self.user.email  # Use email instead of username
 
 
 # Orders Model
@@ -90,8 +114,6 @@ class Order(models.Model):
 
     def __str__(self):
         return f"Order #{self.id} - {self.user.email}"
-
-
 
 
 # OrderDetails Model (Many-to-Many Link between Orders and Items)
