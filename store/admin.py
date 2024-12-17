@@ -93,7 +93,7 @@ class OrderDetailInline(admin.TabularInline):
 
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'user', 'date', 'payment_status', 'fulfillment_status', 'total')
+    list_display = ('id', 'user', 'date', 'payment_status', 'fulfillment_status', 'total', "address")
     list_filter = ('payment_status', 'fulfillment_status')
     search_fields = ('user__email', 'id')
     inlines = [OrderDetailInline]  # Include the OrderDetail inline

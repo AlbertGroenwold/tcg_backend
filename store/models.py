@@ -99,17 +99,11 @@ class Order(models.Model):
     payment_status = models.CharField(max_length=50, default="Pending")
     fulfillment_status = models.CharField(max_length=50, default="Processing")
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    address = models.TextField(max_length=255, default="UNKNOWN")  # New field to store selected address
 
     def save(self, *args, **kwargs):
-        # Save the Order instance first to ensure it has a primary key
         super().save(*args, **kwargs)
-
-        # Recalculate the total after saving the Order instance
-        self.total = sum(
-            detail.price for detail in self.order_details.all()
-        )
-
-        # Save again to update the total
+        self.total = sum(detail.price for detail in self.order_details.all())
         super().save(update_fields=['total'])
 
     def __str__(self):

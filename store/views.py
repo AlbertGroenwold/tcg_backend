@@ -63,20 +63,32 @@ def get_user_profile(request, email):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_order_details(request, order_id):
-    order = Order.objects.get(id=order_id, user=request.user)
-    details = OrderDetail.objects.filter(order=order)
-    response = {
-        "id": order.id,
-        "items": [
-            {
-                "name": detail.item.name,
-                "quantity": detail.quantity,
-                "price": detail.price,
-            }
-            for detail in details
-        ],
-    }
-    return Response(response)
+    try:
+        # Get the order and ensure it belongs to the logged-in user
+        order = Order.objects.get(id=order_id, user=request.user)
+        order_details = OrderDetail.objects.filter(order=order)
+
+        response_data = {
+            "id": order.id,
+            "date": order.date,
+            "payment_status": order.payment_status,
+            "fulfillment_status": order.fulfillment_status,
+            "total": order.total,
+            "address": order.address,
+            "items": [
+                {
+                    "name": detail.item.name,
+                    "quantity": detail.quantity,
+                    "price": detail.price,
+                }
+                for detail in order_details
+            ],
+        }
+        return Response(response_data, status=status.HTTP_200_OK)
+
+    except Order.DoesNotExist:
+        return Response({"error": "Order not found or unauthorized"}, status=status.HTTP_404_NOT_FOUND)
+
 
 
 @api_view(['GET'])
@@ -271,3 +283,47 @@ class AddressListCreateView(APIView):
             serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_order(request):
+    try:
+        user = request.user
+        cart_items = request.data.get('cart_items')
+        delivery_address = request.data.get('delivery_address')  # Address from frontend
+        billing_address = request.data.get('billing_address')
+        total = request.data.get('subtotal')
+
+        # Ensure delivery address fields exist
+        formatted_address = ", ".join([
+            delivery_address.get('address', '').strip(),
+            delivery_address.get('city', '').strip(),
+            delivery_address.get('province', '').strip(),
+            delivery_address.get('postalCode', '').strip()
+        ]).strip(", ")
+
+        if not formatted_address:
+            return Response({"error": "Delivery address is invalid."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create the order
+        order = Order.objects.create(
+            user=user,
+            total=total,
+            address=formatted_address,  # Save formatted address
+            payment_status="Pending",
+            fulfillment_status="Processing"
+        )
+
+        # Create order details
+        for item in cart_items:
+            OrderDetail.objects.create(
+                order=order,
+                item_id=item['id'],
+                quantity=item['quantity'],
+                price=item['price'] * item['quantity']
+            )
+
+        return Response({"order_id": order.id}, status=status.HTTP_201_CREATED)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
