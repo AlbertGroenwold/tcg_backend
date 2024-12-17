@@ -6,18 +6,30 @@ from .views import (
     get_user_orders,
     get_item_detail,
     CustomTokenObtainPairView,
+    search_items,
+    get_category_hierarchy,
+    get_sidebar_data,
+    AddressDetailView,
+    AddressListCreateView,
+    create_order,
+    get_order_details,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
-from .views import get_item_detail
-from .views import search_items
 
 urlpatterns = [
     path('items/', get_items_by_category, name='get_items_by_category'),
-    path('items/<int:id>/', get_item_detail, name='get_item_detail'),
+    path('items/<str:name>/', get_item_detail, name='get_item_detail'),
     path('register/', RegisterUserView.as_view(), name='register'),
     path('user/<str:username>/', UserDetailView.as_view(), name='user_detail'),
     path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('orders/', get_user_orders, name='user_orders'),
+    path('orders/', get_user_orders, name='user_orders'), #sdfsdfssaafsdfasfasfasdfasdfasfasfasfasfasfasf
     path('search/', search_items, name='search_items'),
+    path('sidebar-data/', get_sidebar_data, name='sidebar-data'),
+    path('categories/', get_category_hierarchy, name='category-hierarchy'),#sdfsdfssaafsdfasfasfasdfasdfasfasfasfasfasfasf
+    path('categories/hierarchy/', get_category_hierarchy, name='get_category_hierarchy'),#sdfsdfssaafsdfasfasfasdfasdfasfasfasfasfasfasf
+    path('address/<int:pk>/', AddressDetailView.as_view(), name='address-detail'),
+    path('address/', AddressListCreateView.as_view(), name='address-list-create'),
+    path('create-order/', create_order, name='create_order'),
+    path('orders/<int:order_id>/', get_order_details, name='get_order_details'),
 ]
