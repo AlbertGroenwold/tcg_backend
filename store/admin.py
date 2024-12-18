@@ -7,8 +7,14 @@ from .models import (
     Order,
     OrderDetail,
     Address,
+    Supplier,
+    Tag,
 )
 
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):
+    list_display = ('name', 'description', 'date_created')  # Display name and creation date
+    search_fields = ('name',)  # Allow search by name
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -20,14 +26,75 @@ class CategoryAdmin(admin.ModelAdmin):
         return str(obj)
     get_full_hierarchy.short_description = 'Full Hierarchy'
 
+@admin.register(Supplier)
+class SupplierAdmin(admin.ModelAdmin):
+    list_display = ('name', 'contact_email', 'contact_phone', 'date_added')  # Fields to display in admin list view
+    search_fields = ('name', 'contact_email')  # Fields to include in admin search
+    list_filter = ('date_added',)  # Filters in admin panel
+
+class CategoryInline(admin.TabularInline):
+    """Inline display for categories related to an item."""
+    model = Item.categories.through  # Access the through model for ManyToManyField
+    extra = 1  # Number of empty inline forms to display
+    verbose_name = "Category"
+    verbose_name_plural = "Categories"
+
+class TagInline(admin.TabularInline):
+    """Inline display for tags related to an item."""
+    model = Item.tags.through  # Access the through model for ManyToManyField
+    extra = 1  # Number of empty inline forms to display
+    verbose_name = "Tag"
+    verbose_name_plural = "Tags"
 
 @admin.register(Item)
 class ItemAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'price', 'stock', 'image', 'release_date', 'contains')
-    search_fields = ('name',)
-    list_filter = ('categories',)
-    filter_horizontal = ('categories',)  # Allow easy selection of categories in the admin panel
-    readonly_fields = ('id',)
+    """Custom admin interface for the Item model."""
+
+    list_display = (
+        'name', 'price', 'discount_price', 'stock', 'is_active', 'release_date', 'supplier', 'views', 'rating'
+    )
+    list_filter = (
+        'is_active', 'categories', 'tags', 'supplier', 'release_date', 'date_added'
+    )
+    search_fields = ('name', 'sku', 'description')
+    filter_horizontal = ('categories', 'tags')
+    readonly_fields = ('date_added', 'views', 'rating', 'reviews_count')
+
+    fieldsets = (
+        ("General Information", {
+            'fields': ('name', 'description', 'image', 'sku', 'categories', 'tags', 'supplier')
+        }),
+        ("Pricing and Stock", {
+            'fields': ('price', 'discount_price', 'stock', 'weight', 'dimensions', 'contains')
+        }),
+        ("Additional Details", {
+            'fields': ('release_date', 'is_active', 'date_added', 'views', 'rating', 'reviews_count')
+        }),
+    )
+
+    #inlines = [CategoryInline, TagInline]
+
+    def get_queryset(self, request):
+        """Optimize the query for performance."""
+        queryset = super().get_queryset(request)
+        return queryset.select_related('supplier').prefetch_related('categories', 'tags')
+
+    def supplier(self, obj):
+        """Display supplier name in the admin list view."""
+        return obj.supplier.name if obj.supplier else "None"
+
+    supplier.short_description = "Supplier"
+
+    def rating_display(self, obj):
+        """Format rating with stars."""
+        return f"{obj.rating} ★"  # Unicode for star
+
+    rating_display.short_description = "Rating"
+
+
+# Optional: Unregister the through models to clean up the admin
+#admin.site.unregister(Item.categories.through)
+#admin.site.unregister(Item.tags.through)
 
 
 # Custom User Admin

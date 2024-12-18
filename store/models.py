@@ -27,6 +27,27 @@ class Category(models.Model):
             parent = parent.parent
         return " > ".join(reversed(ancestors))
 
+class Tag(models.Model):
+    id = models.AutoField(primary_key=True)  # Auto-generated ID
+    name = models.CharField(max_length=255, unique=True)  # Unique name for the tag
+    description = models.TextField(blank=True, null=True)  # Optional description of the tag
+    date_created = models.DateTimeField(auto_now_add=True)  # Automatically populated when tag is created
+
+    def __str__(self):
+        return self.name
+
+
+class Supplier(models.Model):
+    id = models.AutoField(primary_key=True)  # Auto-generated ID
+    name = models.CharField(max_length=255, unique=True)  # Supplier name
+    contact_email = models.EmailField(blank=True, null=True)  # Optional contact email
+    contact_phone = models.CharField(max_length=20, blank=True, null=True)  # Optional contact phone number
+    address = models.TextField(blank=True, null=True)  # Optional address
+    website = models.URLField(blank=True, null=True)  # Optional website URL
+    date_added = models.DateTimeField(auto_now_add=True)  # Automatically populate with current timestamp
+
+    def __str__(self):
+        return self.name
 
 # Item Model
 class Item(models.Model):
@@ -39,10 +60,20 @@ class Item(models.Model):
     image = models.ImageField(upload_to='item_images/', blank=True, null=True)  # Image upload field
     release_date = models.DateField(blank=True, null=True)  # New release date field
     contains = models.TextField(blank=True, null=True)  # New contains field (e.g., items it contains)
+    date_added = models.DateTimeField(auto_now_add=True)  # Automatically populated with the current timestamp when added
+    discount_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True,null=True)  # Optional discount price
+    sku = models.CharField(max_length=100, unique=True)  # Unique Stock Keeping Unit
+    tags = models.ManyToManyField(Tag, related_name='items', blank=True)  # Related tags
+    is_active = models.BooleanField(default=True)  # Indicates if the item is active or inactive
+    views = models.PositiveIntegerField(default=0)  # Count of item views
+    rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.0)  # Average rating
+    reviews_count = models.PositiveIntegerField(default=0)  # Number of reviews
+    weight = models.DecimalField(max_digits=6, decimal_places=2, blank=True, null=True)  # Weight in kilograms
+    dimensions = models.CharField(max_length=255, blank=True, null=True)  # Dimensions in format 'LxWxH'
+    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True,related_name='items')  # Supplier relationship
 
     def __str__(self):
         return self.name
-
 
 # Address Model
 class Address(models.Model):
