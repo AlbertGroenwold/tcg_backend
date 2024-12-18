@@ -12,7 +12,7 @@ from .views import (
     AddressDetailView,
     AddressListCreateView,
     create_order,
-    get_order_details
+    get_order_details,
     get_all_items,
     latest_items,
     homepage_sections,
