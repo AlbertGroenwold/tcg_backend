@@ -1,3 +1,5 @@
+import unicodedata
+from django.db.models import Prefetch
 from rest_framework.decorators import api_view, permission_classes
 from .serializers import ItemSerializer, OrderSerializer, UserSerializer, AddressSerializer
 from django.shortcuts import redirect
@@ -11,9 +13,16 @@ from rest_framework.permissions import IsAuthenticated
 from .models import CustomUser, Item, Order, OrderDetail, Category, Address
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenObtainPairSerializer
+from django.db.models import Sum
+
 
 def home(request):
     return redirect('/admin')
+
+def normalize_string(input_str):
+    """Normalize a string to NFKD (Compatibility Decomposition)."""
+    return unicodedata.normalize('NFKD', input_str).encode('ASCII', 'ignore').decode('utf-8')
+
 
 @api_view(['GET'])
 def get_user_orders(request):
@@ -60,6 +69,7 @@ def get_user_profile(request, email):
     except CustomUser.DoesNotExist:
         return Response({'error': 'User not found'}, status=404)
 
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_order_details(request, order_id):
@@ -90,34 +100,60 @@ def get_order_details(request, order_id):
         return Response({"error": "Order not found or unauthorized"}, status=status.HTTP_404_NOT_FOUND)
 
 
+def get_descendant_categories(category):
+    """ Recursively fetch all descendant categories for the given category """
+    descendants = []
+    children = category.children.all()
+    for child in children:
+        descendants.append(child)
+        descendants.extend(get_descendant_categories(child))
+    return descendants
 
-@api_view(['GET'])
+
 def get_items_by_category(request):
-    category_query = request.GET.get('category', None)
-    if category_query:
-        # Split the category query into parent and child if they exist
-        if '/' in category_query:
-            parent_name, category_name = category_query.split('/', 1)
-            items = Item.objects.filter(
-                categories__name__icontains=category_name,
-                categories__parent__name__icontains=parent_name
-            ).distinct()
-        else:
-            items = Item.objects.filter(categories__name__icontains=category_query).distinct()
-    else:
-        items = Item.objects.all()
+    category_name = request.GET.get('category', None)  # Fetch query parameter
 
-    # Serialize the items
-    items_data = [
-        {
-            'id': item.id,
-            'name': item.name,
-            'price': float(item.price),
-            'categories': [category.name for category in item.categories.all()]  # Include all categories for the item
-        }
-        for item in items
-    ]
-    return JsonResponse(items_data, safe=False)
+    if not category_name:
+        return JsonResponse({'error': 'Category parameter is required'}, status=400)
+
+    try:
+        # Normalize the category name for consistent comparison
+        normalized_category_name = normalize_string(category_name)
+
+        # Find categories ignoring case and normalization
+        base_category = Category.objects.filter(
+            name__iexact=category_name
+        ).first() or Category.objects.filter(
+            name__iexact=normalized_category_name
+        ).first()
+
+        if not base_category:
+            return JsonResponse({'error': 'Category not found'}, status=404)
+
+        # Get all descendant categories
+        descendant_categories = get_descendant_categories(base_category)
+        all_categories = [base_category] + descendant_categories
+
+        # Query items belonging to these categories
+        items = Item.objects.filter(categories__in=all_categories).distinct()
+
+        # Format response
+        data = [
+            {
+                'id': item.id,
+                'name': item.name,
+                'price': float(item.price),
+                'categories': [cat.name for cat in item.categories.all()],
+                'image': request.build_absolute_uri(item.image.url) if item.image else None,
+            }
+            for item in items
+        ]
+        return JsonResponse(data, safe=False)
+
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
 
 def get_category_counts(request):
     categories = Category.objects.all()
@@ -137,10 +173,10 @@ def get_category_counts(request):
 
 def get_item_detail(request, name):
     try:
-        # Fetch the item by name (case-insensitive) and prefetch its related categories
         item = Item.objects.prefetch_related('categories').get(name__iexact=name)
+        discounted_price = float(item.discount_price) if item.discount_price else 0
+        final_price = float(item.price) - discounted_price
 
-        # Serialize the item data including related categories
         return JsonResponse({
             'id': item.id,
             'name': item.name,
@@ -149,7 +185,9 @@ def get_item_detail(request, name):
                 for category in item.categories.all()
             ],
             'description': item.description,
-            'price': float(item.price),
+            'price': final_price,
+            'original_price': float(item.price),
+            'discount_price': discounted_price,
             'stock': item.stock,
             'image': request.build_absolute_uri(item.image.url) if item.image else None,
             'contains': item.contains,
@@ -158,7 +196,9 @@ def get_item_detail(request, name):
     except Item.DoesNotExist:
         return JsonResponse({'error': 'Item not found'}, status=404)
 
+
 User = get_user_model()  # Use the custom user model if defined
+
 
 class UserDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -187,6 +227,7 @@ class UserDetailView(APIView):
         except CustomUser.DoesNotExist:
             return Response({"error": "User not found"}, status=404)
 
+
 class RegisterUserView(APIView):
     def post(self, request):
         email = request.data.get('email')
@@ -199,6 +240,7 @@ class RegisterUserView(APIView):
         # Create the user
         user = CustomUser.objects.create_user(email=email, password=password)
         return Response({'message': 'User registered successfully'}, status=status.HTTP_201_CREATED)
+
 
 class LoginView(APIView):
     def post(self, request):
@@ -216,7 +258,8 @@ class LoginView(APIView):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
-    
+
+
 @api_view(['GET'])
 def search_items(request):
     item = request.query_params.get('item', None)
@@ -248,6 +291,7 @@ def get_sidebar_data(request):
     data = build_hierarchy()
     return JsonResponse({"sidebar": data})
 
+
 def get_category_hierarchy(request):
     def build_hierarchy(parent=None):
         categories = Category.objects.filter(parent=parent).order_by('name')
@@ -264,8 +308,10 @@ def get_category_hierarchy(request):
     data = build_hierarchy()
     return JsonResponse(data, safe=False)
 
+
 class AddressDetailView(APIView):
     permission_classes = [IsAuthenticated]
+
     def delete(self, request, pk, *args, **kwargs):
         try:
             address = Address.objects.get(pk=pk)
@@ -273,6 +319,7 @@ class AddressDetailView(APIView):
             return Response({"message": "Address deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
         except Address.DoesNotExist:
             return Response({"error": "Address not found."}, status=status.HTTP_404_NOT_FOUND)
+
 
 class AddressListCreateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -327,3 +374,103 @@ def create_order(request):
         return Response({"order_id": order.id}, status=status.HTTP_201_CREATED)
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+def homepage_sections(request):
+    # Helper function to calculate the effective price
+    def calculate_effective_price(item):
+        return float(item.price) - float(item.discount_price or 0)
+
+    # Fetch the required items for each section
+    new_items = Item.objects.filter(is_active=True).order_by('-date_added')[:8]
+    on_sale_items = Item.objects.filter(is_active=True, discount_price__isnull=False)[:8]
+    best_sellers = Item.objects.annotate(
+        total_sold=Sum('orderdetail__quantity')
+    ).filter(is_active=True).order_by('-total_sold')[:8]
+    top_rated = Item.objects.filter(is_active=True).order_by('-rating', '-reviews_count')[:8]
+
+    # Fallback: if no items exist for the categories, fetch 8 random items
+    fallback_items = []
+    if not new_items and not on_sale_items and not best_sellers and not top_rated:
+        fallback_items = Item.objects.filter(is_active=True).order_by('?')[:8]
+
+    # Prepare response data
+    data = {
+        "new": [
+            {
+                "id": item.id,
+                "name": item.name,
+                "price": calculate_effective_price(item),
+                "original_price": float(item.price),
+                "discount_price": float(item.discount_price) if item.discount_price else None,
+                "image": item.image.url if item.image else None,
+            }
+            for item in new_items
+        ],
+        "on_sale": [
+            {
+                "id": item.id,
+                "name": item.name,
+                "price": calculate_effective_price(item),
+                "original_price": float(item.price),
+                "discount_price": float(item.discount_price) if item.discount_price else None,
+                "image": item.image.url if item.image else None,
+            }
+            for item in on_sale_items
+        ],
+        "best_sellers": [
+            {
+                "id": item.id,
+                "name": item.name,
+                "price": calculate_effective_price(item),
+                "original_price": float(item.price),
+                "discount_price": float(item.discount_price) if item.discount_price else None,
+                "image": item.image.url if item.image else None,
+            }
+            for item in best_sellers
+        ],
+        "top_rated": [
+            {
+                "id": item.id,
+                "name": item.name,
+                "price": calculate_effective_price(item),
+                "original_price": float(item.price),
+                "discount_price": float(item.discount_price) if item.discount_price else None,
+                "image": item.image.url if item.image else None,
+            }
+            for item in top_rated
+        ],
+        "fallback": [
+            {
+                "id": item.id,
+                "name": item.name,
+                "price": calculate_effective_price(item),
+                "original_price": float(item.price),
+                "discount_price": float(item.discount_price) if item.discount_price else None,
+                "image": item.image.url if item.image else None,
+            }
+            for item in fallback_items
+        ],
+    }
+
+    return JsonResponse(data)
+
+
+
+def latest_items(request):
+    latest_items = Item.objects.order_by('-date_added')[:5]
+    data = {
+        "latest_items": [
+            {
+                "id": item.id,
+                "name": item.name,
+                "price": float(item.price - (item.discount_price or 0)),
+                "original_price": float(item.price),
+                "discount_price": float(item.discount_price) if item.discount_price else None,
+                "image": item.image.url if item.image else None,
+            }
+            for item in latest_items
+        ]
+    }
+    return JsonResponse(data)

@@ -13,10 +13,13 @@ from .views import (
     AddressListCreateView,
     create_order,
     get_order_details,
+    latest_items,
+    homepage_sections,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
+    path('homepage/', homepage_sections, name='homepage_data'),
     path('items/', get_items_by_category, name='get_items_by_category'),
     path('items/<str:name>/', get_item_detail, name='get_item_detail'),
     path('register/', RegisterUserView.as_view(), name='register'),
@@ -32,4 +35,5 @@ urlpatterns = [
     path('address/', AddressListCreateView.as_view(), name='address-list-create'),
     path('create-order/', create_order, name='create_order'),
     path('orders/<int:order_id>/', get_order_details, name='get_order_details'),
+    path("latest-items/", latest_items, name="latest-items"),
 ]
