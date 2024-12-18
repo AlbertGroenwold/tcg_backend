@@ -13,6 +13,7 @@ from .views import (
     AddressListCreateView,
     create_order,
     get_order_details,
+    get_all_items,
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -32,4 +33,5 @@ urlpatterns = [
     path('address/', AddressListCreateView.as_view(), name='address-list-create'),
     path('create-order/', create_order, name='create_order'),
     path('orders/<int:order_id>/', get_order_details, name='get_order_details'),
+    path('allItems/',get_all_items,name='get_all_items'),
 ]
