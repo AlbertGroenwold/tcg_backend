@@ -12,7 +12,8 @@ from .views import (
     AddressDetailView,
     AddressListCreateView,
     create_order,
-    get_order_details,
+    get_order_details
+    get_all_items,
     latest_items,
     homepage_sections,
 )
@@ -35,5 +36,6 @@ urlpatterns = [
     path('address/', AddressListCreateView.as_view(), name='address-list-create'),
     path('create-order/', create_order, name='create_order'),
     path('orders/<int:order_id>/', get_order_details, name='get_order_details'),
+    path('allItems/',get_all_items,name='get_all_items'),
     path("latest-items/", latest_items, name="latest-items"),
 ]

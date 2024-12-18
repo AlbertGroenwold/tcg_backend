@@ -375,6 +375,11 @@ def create_order(request):
     except Exception as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET'])
+def get_all_items(request):    
+    items = Item.objects.all()
+    item_names = [item.name for item in items]
+    return Response(item_names)
 
 @api_view(['GET'])
 def homepage_sections(request):
